@@ -106,31 +106,29 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 - 首页 mock 简历为确定性生成数据（同一岗位同一序号内容固定），每岗位 15 条。
 - 评分依赖 DeepSeek 返回，未配置 `DEEPSEEK_API_KEY` 时后端返回 `502` 并在页面提示。
 
-## 部署上线（免费 PaaS）
+## 部署上线（免费 PaaS，单服务单网址）
 
-前端 H5 与后端 API 分开部署，最终得到两个公网地址。仓库根目录已内置 Render 蓝图配置 `render.yaml`。
+网页版（H5）构建产物已放在 `backend/static/`，由 FastAPI 直接托管：只需部署一个服务，访问根路径就是网站，评估接口同源调用，不需要再单独部署静态站点。
 
-### 1. 后端部署到 Render
+### 1. 部署到 Render
 
-1. 把整个项目推到 GitHub 仓库（需要 Git 或 GitHub Desktop）。
-2. 打开 [Render](https://render.com) → New → Blueprint → 选择该仓库，Render 会自动读取 `render.yaml` 创建服务。
-   - 也可以手动创建：New → Web Service，Root Directory 填 `backend`，Build Command 填 `pip install -r requirements.txt`，Start Command 填 `uvicorn main:app --host 0.0.0.0 --port $PORT`。
-3. 在服务 Environment 中填写 `DEEPSEEK_API_KEY`（`render.yaml` 里标记为 `sync: false`，必须在控制台手动填）。
-4. 部署完成后访问 `https://<服务名>.onrender.com/api/health`，返回 `{"status":"ok"}` 即成功。
+1. 项目已推送到 GitHub 仓库。
+2. 打开 [Render](https://render.com) → 用 GitHub 账号登录 → New → Blueprint → 选择仓库，会自动读取 `render.yaml` 创建 `ai-resume-api` 服务。
+   - 手动创建等价配置：Root Directory 填 `backend`，Build Command 填 `pip install -r requirements.txt`，Start Command 填 `uvicorn main:app --host 0.0.0.0 --port $PORT`。
+3. 在 Environment 中填写 `DEEPSEEK_API_KEY`（`render.yaml` 中标记 `sync: false`，必须手动填）。
+4. 部署完成后访问 `https://<服务名>.onrender.com` 即为网站首页；`/api/health` 返回 `{"status":"ok"}` 表示接口正常。
 
-> 免费实例闲置会休眠，首次访问需 30-60 秒冷启动；演示前先访问一次唤醒。
+> 免费实例闲置会休眠，首次访问需 30-60 秒冷启动。
 
-### 2. 前端 H5 部署
+### 2. 前端改动后如何更新网页
 
-1. 修改 `frontend/utils/config.js` 中的 `PROD_BASE_URL` 为上面拿到的后端地址（https）。
-2. HBuilderX → 发行 → 网站-H5手机版，产物目录为 `frontend/unpackage/dist/build/h5`。
-3. 打开 [Cloudflare Pages](https://pages.cloudflare.com) → Create a project → Direct Upload，把该 `h5` 目录整体拖入上传。
-4. 部署完成后得到 `https://<项目名>.pages.dev`，手机或电脑浏览器打开即可使用。
+1. 重新构建 H5：HBuilderX → 发行 → 网站-H5手机版（或命令行 `uni build`）。
+2. 把 `frontend/unpackage/dist/build/h5` 下的文件复制到 `backend/static/`。
+3. 提交并推送到 GitHub，Render 会自动重新部署。
 
-### 3. 上线注意事项
+### 3. 注意事项
 
-- 前端为 https 时后端也必须是 https，否则浏览器会拦截混合内容请求。
-- 不要用 Vercel / Netlify Functions 托管后端：函数超时约 10 秒，DeepSeek 评估会失败，需用常驻服务。
-- PDF 上传受平台请求体大小限制，Render 与云服务器无明显压力。
+- 网页与接口同域，不存在跨域和混合内容问题。
 - 评估历史与个人信息保存在浏览器 localStorage，换设备看不到（无数据库设计的正常表现）。
-- 部署到子路径（如 GitHub Pages 的 `/repo/`）需在 `manifest.json` 里配置 `h5.router.base`；Cloudflare Pages 根域名部署无需配置。
+- 不要用 Vercel / Netlify Functions 托管后端：函数超时约 10 秒，DeepSeek 评估会失败，需使用常驻服务。
+- 真机 / 模拟器调试仍使用 `DEV_BASE_URL`，发行版本使用 `PROD_BASE_URL`（线上留空走同源）。

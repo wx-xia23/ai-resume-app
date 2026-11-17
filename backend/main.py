@@ -2,9 +2,11 @@
 
 import io
 import json
+from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from PyPDF2 import PdfReader
 
 from deepseek import DeepSeekError, DeepSeekTimeout, evaluate_resume
@@ -97,3 +99,8 @@ async def evaluate(file: UploadFile = File(...), industries: str = Form(...)):
         "general_advice": result["general_advice"],
         "industry_scores": result["industry_scores"],
     }
+
+# 前端 H5 静态资源：网页与 API 同服务托管，访问根路径即是网站
+_STATIC_DIR = Path(__file__).parent / "static"
+if _STATIC_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(_STATIC_DIR), html=True), name="static")
